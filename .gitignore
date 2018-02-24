@@ -1,4 +1,6 @@
 /bin
 /build
 /.gradle
+/*.bat
 mysrc/
+/log

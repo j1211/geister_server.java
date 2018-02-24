@@ -23,10 +23,11 @@ public class TCPServerWithBlock {
 	Server webSocketServer = new Server("localhost", 8080, "/ws", null, UIWebSocketServer.class);
 
 	private ServerThread[] players = new ServerThread[2];
-	
+
 	private Object lock = new Object();
 
 	private int waitTime = 10;
+	private static int sleepTimeMiri = 0;
 
 	private final int budget;
 
@@ -38,7 +39,7 @@ public class TCPServerWithBlock {
 	public void setWaitTime(int v){
 		waitTime = v;
 	}
-	
+
 	public int getWaitTime(){
 		return waitTime;
 	}
@@ -65,7 +66,7 @@ public class TCPServerWithBlock {
 		SocketChannel ch;
 		final GameServer game;
 		int budget;
-		
+
 		public ServerThread(GameServer game, int port, int budget) throws IOException{
 			this.budget = budget;
 			this.game = game;
@@ -133,7 +134,7 @@ public class TCPServerWithBlock {
 				return true;
 			}
 		}
-		
+
 		public void run(){
 			irregularFlag = false;
 			try{
@@ -142,7 +143,7 @@ public class TCPServerWithBlock {
 				e.printStackTrace();
 			}
 		}
-		
+
 		private void body() throws IOException{
 			doAccept(server);
 			boolean flag = true;
@@ -188,16 +189,16 @@ public class TCPServerWithBlock {
 				server.close();
 			}
 		}
-				
+
 		long turnStart = -1;
-		
+
 		private boolean action(SocketChannel chan, String str, int pid) throws IOException {
 			boolean result = true;
 			String lastTakenItemColor = "";
 
 			int i = str.indexOf("\r\n");
 			if (i == -1){
-				// internal error; str should be a message. 
+				// internal error; str should be a message.
 				return false;
 			}
 			String cmd = str.substring(0, i);
@@ -205,11 +206,11 @@ public class TCPServerWithBlock {
 			result = game.parse(cmd, pid);
 			lastTakenItemColor = game.getLastTakenItemColor();
 			game.pp();
-		
+
 			restMesg = str;
-		
+
 			String stateLabel = "MOV:";
-			
+
 			if (result) {
 				System.out.println("pid["+pid+"]send: OK");
 				if(turnStart > 0){
@@ -224,7 +225,12 @@ public class TCPServerWithBlock {
 				System.out.println("send: NG");
 				send(chan, "NG \r\n");
 			}
-			
+
+			//sleep for view. (without using budget time.)
+			try {
+					Thread.sleep(sleepTimeMiri);
+			} catch (InterruptedException e) {}
+
 			if (result && game.getState() == GameServer.STATE.WAIT_FOR_PLAYER_0) {
 				System.out.println("MOV?" + game.getEncodedBoard(0));
 				send(players[0].ch, "MOV?" + game.getEncodedBoard(0) + "\r\n");
@@ -260,7 +266,7 @@ public class TCPServerWithBlock {
 				}
 			}
 			UIWebSocketServer.setMesg(stateLabel + game.getEncodedBoard(1, true)); // as global viewer mode
-		
+
 			return result;
 		}
 
@@ -277,13 +283,13 @@ public class TCPServerWithBlock {
 	}
 
 	private boolean irregularFlag = false;
-	
+
 	class PlayerTimer extends Thread{
 		private final GameServer game;
 		private final ServerThread[] players;
 		private final int waitTime;
 		private final int player;
-		
+
 		private boolean runFlag = false;
 		private boolean timeout = false;
 
@@ -332,10 +338,10 @@ public class TCPServerWithBlock {
 				}
 			}
 		}
-			
+
 	}
 
-	
+
 	private void close() throws IOException {
 		players[0].close();
 		players[1].close();
@@ -343,7 +349,7 @@ public class TCPServerWithBlock {
 
 	public static void main(String[] args) throws Exception {
 		System.out.println("TCPSrverWithBlock");
-		GetOpt opt = new GetOpt("", "no_ng_terminate,timeout:,budget:", args);
+		GetOpt opt = new GetOpt("", "no_ng_terminate,timeout:,budget,wait:", args);
 		boolean ng_terminate = !opt.flag("no_ng_terminate");
 		int budget = 10*60; // 10min.
 		if(opt.flag("budget")){
@@ -352,6 +358,10 @@ public class TCPServerWithBlock {
 		TCPServerWithBlock s = new TCPServerWithBlock(new GameServer(ng_terminate), budget);
 		if(opt.flag("timeout")){
 			s.setWaitTime(Integer.parseInt(opt.getValue("timeout")));
+		}
+		if(opt.flag("wait")){
+			sleepTimeMiri = Integer.parseInt(opt.getValue("wait"));
+			System.out.println("sleepTimeMiri = " + sleepTimeMiri);
 		}
 		System.out.println("Budget = " + budget + " sec.");
 		System.out.println("Timeout(after consuming budget) = " + s.getWaitTime() + " sec.");
