@@ -349,7 +349,7 @@ public class TCPServerWithBlock {
 
 	public static void main(String[] args) throws Exception {
 		System.out.println("TCPSrverWithBlock");
-		GetOpt opt = new GetOpt("", "no_ng_terminate,timeout:,budget,wait:", args);
+		GetOpt opt = new GetOpt("", "no_ng_terminate,timeout:,budget:,wait:", args);
 		boolean ng_terminate = !opt.flag("no_ng_terminate");
 		int budget = 10*60; // 10min.
 		if(opt.flag("budget")){
